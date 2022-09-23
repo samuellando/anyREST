@@ -128,11 +128,7 @@ def patch(path):
         return "", 404
 
     for key in update:
-        if update[key] == None:
-            if key in elem:
-                del elem[key]
-        else:
-            elem[key] = update[key]
+        elem[key] = update[key]
 
     saveData(data)
 
