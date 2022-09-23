@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, request, Response
 from markupsafe import escape
 import json
 
@@ -15,7 +15,6 @@ def saveData(data):
 
 def getByKeys(data, keys):
     for k in keys:
-        print(data)
         if k in data:
             data = data[k]
         else:
@@ -23,8 +22,11 @@ def getByKeys(data, keys):
     
     return data
 
-@app.route("/<path:path>", methods=["GET"])
+@app.route("/v1/<path:path>", methods=["GET"])
 def get(path):
+    """
+    Get an object, or set of objects.
+    """
     layers = path.split("/")
 
     data = loadData()
@@ -32,14 +34,16 @@ def get(path):
     elem = getByKeys(data, layers)
 
     if elem == None:
-        return "404", 404
+        return "", 404
 
     return elem
 
-@app.route("/<path:path>", methods=["POST"])
+@app.route("/v1/<path:path>", methods=["POST"])
 def post(path):
-    # TODO read request body for data.
-    new = {"new": "data"}
+    """
+    Create a new object.
+    """
+    new = request.json
 
     layers = path.split("/")
 
@@ -63,20 +67,56 @@ def post(path):
         col = col[l]
 
     if len(col.keys()) > 0:
-        id = str(int(max(col.keys())) + 1)
+        try:
+            id = str(max(map(lambda x:int(x), col.keys())) + 1)
+        except ValueError:
+            return { 
+                    "code": 1, 
+                    "message": "Endpoint is not a collection",
+                    "description": "Not all existing keys in enpoint are ints.",
+                    }, 400
     else:
         id = "0"
 
+    new["id"] = id
     col[id] = new 
+
+    saveData(json.dumps(new))
+
+    res = Response(new)
+
+    res.headers['location'] = "/"+path+"/"+id
+
+    return res, 201
+
+@app.route("/v1/<path:path>", methods=["PUT"])
+def put(path):
+    """
+    fully update an object.
+    """
+    update = request.json
+
+    layers = path.split("/")
+
+    data = loadData()
+
+    col = getByKeys(data, layers[:-1])
+
+    if col == None or not layers[-1] in col or col[layers[-1]] == None:
+        return "", 404
+
+    col[layers[-1]] = update
 
     saveData(data)
 
-    return str(id)
+    return update, 200
 
-@app.route("/<path:path>", methods=["PUT"])
-def put(path):
-    # TODO read request body.
-    update = {'what': 'txt'}
+@app.route("/v1/<path:path>", methods=["PATCH"])
+def patch(path):
+    """
+    Partially update an object
+    """
+    update = request.json
 
     layers = path.split("/")
 
@@ -85,16 +125,20 @@ def put(path):
     elem = getByKeys(data, layers)
 
     if elem == None:
-        return "404", 404
+        return "", 404
 
     for key in update:
-        elem[key] = update[key]
+        if update[key] == None:
+            if key in elem:
+                del elem[key]
+        else:
+            elem[key] = update[key]
 
     saveData(data)
 
-    return data
+    return elem, 200
 
-@app.route("/<path:path>", methods=["DELETE"])
+@app.route("/v1/<path:path>", methods=["DELETE"])
 def delete(path):
     layers = path.split("/")
 
@@ -102,22 +146,11 @@ def delete(path):
 
     col = getByKeys(data,layers[:-1])
 
-    if col == None:
-        return "404", 404
+    if col == None or not layers[-1] in col or col[layers[-1]] == None:
+        return "", 404
 
     col[layers[-1]] = None
 
     saveData(data)
 
-    return data
-
-if __name__ == "__main__":
-    saveData({})
-    print(post("users/0/baselines/0/counters"))
-    print(post("users/0/baselines/0/counters"))
-    print(get("users/0/baselines/0/counters/0"))
-    print(delete("users/0/baselines/0/counters/0"))
-    print(put("users/0/baselines/0/counters/1"))
-    print(delete("users/0/baselines/0/counters/1"))
-    print(get("users/0/baselines/0/counters/1"))
-
+    return "", 204
