@@ -151,7 +151,7 @@ def delete(path):
     if col == None or not layers[-1] in col or col[layers[-1]] == None:
         return {"code": 404}, 404
 
-    col[layers[-1]] = None
+    del col[layers[-1]]
 
     saveData(data)
 
@@ -165,17 +165,35 @@ def after_request_func(response):
 
     data = json.loads(response.get_data())
 
-    # Filtering.
+    # Filtering (lists).
     if type(data) is list:
         for f in request.args:
             # Exclude the other params
-            if f in ['pretty', 'fields']:
+            if f in ['pretty', 'fields','sort']:
                 continue
             new = []
             for e in data:
                 if str(e.get(f)) == request.args[f]:
                         new.append(e)
             data = new
+
+    # Sorting (lists).
+    sorts = request.args.get('sort')
+    if sorts != None and type(data) is list:
+        sorts = sorts.split(",")
+
+        keys = getKeys(data, sorts)
+
+        print(keys)
+
+        for i in range(len(data)):
+            data[i] = [keys[i], data[i]]
+
+        data.sort(key=lambda e : e[0])
+
+        for i in range(len(data)):
+            data[i] = data[i][1]
+
 
     # Only include certain feilds in the output.
     fields = request.args.get('fields')
@@ -207,3 +225,41 @@ def after_request_func(response):
 
     return response
 
+def getKeys(data, sorts):
+    keys = [()] * len(data)
+    for sort in sorts:
+        # Check if all types match.
+        match = True
+        t = None
+        for e in data:
+            if sort in e:
+                if t == None:
+                    t = type(e[sort])
+                else:
+                    if t != type(e[sort]):
+                        match = False
+                        break
+            
+        # Set the default value.
+        if t is None:
+            continue
+        elif t is int or t is float:
+            default = 0
+        elif t is str:
+            default = ""
+        elif t is list:
+            defualt = []
+        elif t is bool:
+            default = False
+        else: # dict, ...
+            match = False
+
+        if match:
+            f = lambda e : e[sort] if sort in e else default
+        else:
+            f = lambda e : str(e[sort]) if sort in e else ""
+
+        for i in range(len(data)):
+            keys[i] = (*keys[i], f(data[i]))
+
+        return keys
