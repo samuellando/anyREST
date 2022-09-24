@@ -34,7 +34,7 @@ def get(path):
     elem = getByKeys(data, layers)
 
     if elem == None:
-        return "", 404
+        return {"code": 404}, 404
 
     return elem
 
@@ -103,7 +103,7 @@ def put(path):
     col = getByKeys(data, layers[:-1])
 
     if col == None or not layers[-1] in col or col[layers[-1]] == None:
-        return "", 404
+        return {"code": 404}, 404
 
     col[layers[-1]] = update
 
@@ -125,7 +125,7 @@ def patch(path):
     elem = getByKeys(data, layers)
 
     if elem == None:
-        return "", 404
+        return {"code": 404}, 404
 
     for key in update:
         elem[key] = update[key]
@@ -143,19 +143,39 @@ def delete(path):
     col = getByKeys(data,layers[:-1])
 
     if col == None or not layers[-1] in col or col[layers[-1]] == None:
-        return "", 404
+        return {"code": 404}, 404
 
     col[layers[-1]] = None
 
     saveData(data)
 
-    return "", 204
+    return {"code": 204}, 204
 
 @app.after_request
 def after_request_func(response):
+    """
+    Apply the global options.
+    """
+
+    data = json.loads(response.get_data())
+
+    # Only include certain feilds in the output.
+    fields = request.args.get('fields')
+    if fields != None:
+        fields = fields.split(",")
+        new = {}
+        for f in fields:
+            if f in data:
+                new[f] = data[f]
+        data = new
+
+
+    # Pretty print the json.
     pretty = request.args.get('pretty')
     if pretty == "true":
-        data = json.loads(response.get_data())
         response.set_data(json.dumps(data, indent=2))
+    else:
+        response.set_data(json.dumps(data))
+
     return response
 
