@@ -159,6 +159,18 @@ def after_request_func(response):
 
     data = json.loads(response.get_data())
 
+    # Filtering.
+    for f in request.args:
+        # Exclude the other params
+        if f in ['pretty', 'fields']:
+            continue
+        new = {}
+        for k in data:
+            if type(data[k]) is dict:
+                if type(request.args[f])(data[k].get(f)) == request.args[f]:
+                    new[k] = data[k]
+        data = new
+
     # Only include certain feilds in the output.
     fields = request.args.get('fields')
     if fields != None:
@@ -168,7 +180,6 @@ def after_request_func(response):
             if f in data:
                 new[f] = data[f]
         data = new
-
 
     # Pretty print the json.
     pretty = request.args.get('pretty')
