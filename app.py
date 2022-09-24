@@ -36,7 +36,13 @@ def get(path):
     if elem == None:
         return {"code": 404}, 404
 
-    return elem
+    for k in elem:
+        try:
+            int(k)
+        except:
+            return elem
+
+    return json.dumps(list(elem.values()))
 
 @app.route("/v1/<path:path>", methods=["POST"])
 def post(path):
@@ -71,7 +77,7 @@ def post(path):
             id = str(max(map(lambda x:int(x), col.keys())) + 1)
         except ValueError:
             return { 
-                    "code": 1, 
+                    "code": 400, 
                     "message": "Endpoint is not a collection",
                     "description": "Not all existing keys in enpoint are ints.",
                     }, 400
@@ -160,26 +166,37 @@ def after_request_func(response):
     data = json.loads(response.get_data())
 
     # Filtering.
-    for f in request.args:
-        # Exclude the other params
-        if f in ['pretty', 'fields']:
-            continue
-        new = {}
-        for k in data:
-            if type(data[k]) is dict:
-                if type(request.args[f])(data[k].get(f)) == request.args[f]:
-                    new[k] = data[k]
-        data = new
+    if type(data) is list:
+        for f in request.args:
+            # Exclude the other params
+            if f in ['pretty', 'fields']:
+                continue
+            new = []
+            for e in data:
+                if str(e.get(f)) == request.args[f]:
+                        new.append(e)
+            data = new
 
     # Only include certain feilds in the output.
     fields = request.args.get('fields')
     if fields != None:
         fields = fields.split(",")
-        new = {}
-        for f in fields:
-            if f in data:
-                new[f] = data[f]
-        data = new
+        if type(data) is dict:
+            new = [data]
+        else:
+            new = data
+        for i in range(len(new)):
+            e = {}
+            for f in fields:
+                if f in new[i]:
+                    e[f] = new[i][f]
+            new[i] = e
+
+        print(new)
+        if type(data) is dict:
+            data = new[0]
+        else:
+            data = new
 
     # Pretty print the json.
     pretty = request.args.get('pretty')
