@@ -81,9 +81,9 @@ def post(path):
     new["id"] = id
     col[id] = new 
 
-    saveData(json.dumps(new))
+    saveData(data)
 
-    res = Response(new)
+    res = Response(json.dumps(new))
 
     res.headers['location'] = "/"+path+"/"+id
 
@@ -150,3 +150,12 @@ def delete(path):
     saveData(data)
 
     return "", 204
+
+@app.after_request
+def after_request_func(response):
+    pretty = request.args.get('pretty')
+    if pretty == "true":
+        data = json.loads(response.get_data())
+        response.set_data(json.dumps(data, indent=2))
+    return response
+
