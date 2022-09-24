@@ -84,7 +84,7 @@ def post(path):
     else:
         id = "0"
 
-    new["id"] = id
+    new["id"] = int(id)
     col[id] = new 
 
     saveData(data)
