@@ -1,4 +1,4 @@
-from flask import Flask, request, Response
+from flask import Flask, request, Response, render_template
 from markupsafe import escape
 import json
 import secrets
@@ -41,6 +41,8 @@ def saveData(token, data):
 
 def getByKeys(data, keys):
     for k in keys:
+        if len(k) == 0:
+            continue
         if k in data:
             data = data[k]
         else:
@@ -48,9 +50,17 @@ def getByKeys(data, keys):
     
     return data
 
-@app.route("/new", methods=["GET"])
-def new():
-    return 'CREATE A NEW TOKEN'
+@app.route("/", methods=["GET"])
+def index():
+    return front("index")
+
+@app.route("/<path:path>", methods=["GET"])
+def front(path):
+    try:
+        r = render_template(path+".html")
+        return r
+    except:
+        return "", 404
 
 @app.route("/new", methods=["POST"])
 def createNew():
@@ -61,8 +71,11 @@ def createNew():
     meta[token] = {"lastModified": time.time_ns()}
     setMeta(meta)
     saveData(token, {})
-    return token
+    return render_template("new.html", url=request.base_url[:-1*len(request.path)], token=token)
 
+@app.route("/v1/<token>", methods=["GET"])
+def getFull(token):
+    return get("", token) 
 
 @app.route("/v1/<token>/<path:path>", methods=["GET"])
 def get(path, token):
