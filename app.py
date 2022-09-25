@@ -1,16 +1,42 @@
 from flask import Flask, request, Response
 from markupsafe import escape
 import json
+import secrets
+import time
 
 app = Flask(__name__)
 
-def loadData():
-    with open("data.json", "r") as f:
+DATA_DIR = "data"
+META_DATA = "meta.json"
+
+def getMeta():
+    global META_DATA
+    with open(META_DATA, "r") as f:
         data = json.load(f)
     return data 
 
-def saveData(data):
-    with open("data.json", "w") as f:
+def setMeta(data):
+    global META_DATA
+    with open(META_DATA, "w") as f:
+        f.write(json.dumps(data))
+
+def loadData(token):
+    global DATA_DIR
+    meta = getMeta()
+    if not token in meta:
+        return {}
+    with open(DATA_DIR+"/"+token+".json", "r") as f:
+        data = json.load(f)
+    return data 
+
+def saveData(token, data):
+    global DATA_DIR
+    meta = getMeta()
+    if not token in meta:
+        return
+    meta[token]["lastModified"] = time.time_ns()
+    setMeta(meta)
+    with open(DATA_DIR+"/"+token+".json", "w") as f:
         f.write(json.dumps(data))
 
 def getByKeys(data, keys):
@@ -22,14 +48,30 @@ def getByKeys(data, keys):
     
     return data
 
-@app.route("/v1/<path:path>", methods=["GET"])
-def get(path):
+@app.route("/new", methods=["GET"])
+def new():
+    return 'CREATE A NEW TOKEN'
+
+@app.route("/new", methods=["POST"])
+def createNew():
+    meta = getMeta()
+    token = secrets.token_urlsafe(16)
+    while token in meta:
+        token = secrets.token_urlsafe(16)
+    meta[token] = {"lastModified": time.time_ns()}
+    setMeta(meta)
+    saveData(token, {})
+    return token
+
+
+@app.route("/v1/<token>/<path:path>", methods=["GET"])
+def get(path, token):
     """
     Get an object, or set of objects.
     """
     layers = path.split("/")
 
-    data = loadData()
+    data = loadData(token)
 
     elem = getByKeys(data, layers)
 
@@ -44,8 +86,8 @@ def get(path):
 
     return json.dumps(list(elem.values()))
 
-@app.route("/v1/<path:path>", methods=["POST"])
-def post(path):
+@app.route("/v1/<token>/<path:path>", methods=["POST"])
+def post(path, token):
     """
     Create a new object.
     """
@@ -53,7 +95,7 @@ def post(path):
 
     layers = path.split("/")
 
-    data = loadData()
+    data = loadData(token)
     p = data
 
     parents = {}
@@ -87,7 +129,7 @@ def post(path):
     new["id"] = int(id)
     col[id] = new 
 
-    saveData(data)
+    saveData(token, data)
 
     res = Response(json.dumps(new))
 
@@ -95,8 +137,8 @@ def post(path):
 
     return res, 201
 
-@app.route("/v1/<path:path>", methods=["PUT"])
-def put(path):
+@app.route("/v1/<token>/<path:path>", methods=["PUT"])
+def put(path, token):
     """
     fully update an object.
     """
@@ -104,7 +146,7 @@ def put(path):
 
     layers = path.split("/")
 
-    data = loadData()
+    data = loadData(token)
 
     col = getByKeys(data, layers[:-1])
 
@@ -113,12 +155,12 @@ def put(path):
 
     col[layers[-1]] = update
 
-    saveData(data)
+    saveData(token, data)
 
     return update, 200
 
-@app.route("/v1/<path:path>", methods=["PATCH"])
-def patch(path):
+@app.route("/v1/<token>/<path:path>", methods=["PATCH"])
+def patch(path, token):
     """
     Partially update an object
     """
@@ -126,7 +168,7 @@ def patch(path):
 
     layers = path.split("/")
 
-    data = loadData()
+    data = loadData(token)
 
     elem = getByKeys(data, layers)
 
@@ -136,15 +178,15 @@ def patch(path):
     for key in update:
         elem[key] = update[key]
 
-    saveData(data)
+    saveData(token, data)
 
     return elem, 200
 
-@app.route("/v1/<path:path>", methods=["DELETE"])
-def delete(path):
+@app.route("/v1/<token>/<path:path>", methods=["DELETE"])
+def delete(path, token):
     layers = path.split("/")
 
-    data = loadData()
+    data = loadData(token)
 
     col = getByKeys(data,layers[:-1])
 
@@ -153,7 +195,7 @@ def delete(path):
 
     del col[layers[-1]]
 
-    saveData(data)
+    saveData(token, data)
 
     return {"code": 204}, 204
 
@@ -162,8 +204,11 @@ def after_request_func(response):
     """
     Apply the global options.
     """
+    try:
+        data = json.loads(response.get_data())
+    except:
+        return response
 
-    data = json.loads(response.get_data())
 
     # Filtering (lists).
     if type(data) is list:
