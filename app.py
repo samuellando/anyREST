@@ -1,54 +1,13 @@
-from flask import Flask, request, Response, render_template
+from flask import Flask, request, render_template
+from flask.wrappers import Response
 from markupsafe import escape
 import json
 import secrets
-import time
+from lib.viewModel import ViewModel
 
 app = Flask(__name__)
 
-DATA_DIR = "data"
-META_DATA = "meta.json"
-
-def getMeta():
-    global META_DATA
-    with open(META_DATA, "r") as f:
-        data = json.load(f)
-    return data 
-
-def setMeta(data):
-    global META_DATA
-    with open(META_DATA, "w") as f:
-        f.write(json.dumps(data))
-
-def loadData(token):
-    global DATA_DIR
-    meta = getMeta()
-    if not token in meta:
-        return {}
-    with open(DATA_DIR+"/"+token+".json", "r") as f:
-        data = json.load(f)
-    return data 
-
-def saveData(token, data):
-    global DATA_DIR
-    meta = getMeta()
-    if not token in meta:
-        return
-    meta[token]["lastModified"] = time.time_ns()
-    setMeta(meta)
-    with open(DATA_DIR+"/"+token+".json", "w") as f:
-        f.write(json.dumps(data))
-
-def getByKeys(data, keys):
-    for k in keys:
-        if len(k) == 0:
-            continue
-        if k in data:
-            data = data[k]
-        else:
-            return None
-    
-    return data
+ERROR_404 = { "code": 404 }
 
 @app.route("/", methods=["GET"])
 def index():
@@ -56,6 +15,9 @@ def index():
 
 @app.route("/<path:path>", methods=["GET"])
 def front(path):
+    """
+    Display the html template at path.
+    """
     try:
         r = render_template(path+".html")
         return r
@@ -64,13 +26,12 @@ def front(path):
 
 @app.route("/new", methods=["POST"])
 def createNew():
-    meta = getMeta()
+    """
+    Generate a new random token, and display a informational page.
+    """
     token = secrets.token_urlsafe(16)
-    while token in meta:
-        token = secrets.token_urlsafe(16)
-    meta[token] = {"lastModified": time.time_ns()}
-    setMeta(meta)
-    saveData(token, {})
+    model = ViewModel(token)
+    model.update({}, "")
     return render_template("new.html", url=request.base_url[:-1*len(request.path)], token=token)
 
 @app.route("/v1/<token>", methods=["GET"])
@@ -82,135 +43,57 @@ def get(path, token):
     """
     Get an object, or set of objects.
     """
-    layers = path.split("/")
+    model = ViewModel(token)
+    try:
+        data = model.read(path)
+        return json.dumps(data)
+    except Exception:
+        return ERROR_404, 404
 
-    data = loadData(token)
-
-    elem = getByKeys(data, layers)
-
-    if elem == None:
-        return {"code": 404}, 404
-
-    for k in elem:
-        try:
-            int(k)
-        except:
-            return elem
-
-    return json.dumps(list(elem.values()))
 
 @app.route("/v1/<token>/<path:path>", methods=["POST"])
 def post(path, token):
     """
     Create a new object.
     """
-    new = request.json
+    model = ViewModel(token)
+    return model.create(request.json, path), 201
 
-    layers = path.split("/")
-
-    data = loadData(token)
-    p = data
-
-    parents = {}
-    for l in reversed(layers):
-        parents = {l: parents}
-
-    for l in layers:
-        if l in p:
-            parents = parents[l]
-            p = p[l]
-        else:
-            p[l] = parents[l]
-            break
-
-    col = data
-    for l in layers:
-        col = col[l]
-
-    if len(col.keys()) > 0:
-        try:
-            id = str(max(map(lambda x:int(x), col.keys())) + 1)
-        except ValueError:
-            return { 
-                    "code": 400, 
-                    "message": "Endpoint is not a collection",
-                    "description": "Not all existing keys in enpoint are ints.",
-                    }, 400
-    else:
-        id = "0"
-
-    new["id"] = int(id)
-    col[id] = new 
-
-    saveData(token, data)
-
-    res = Response(json.dumps(new))
-
-    res.headers['location'] = "/"+path+"/"+id
-
-    return res, 201
 
 @app.route("/v1/<token>/<path:path>", methods=["PUT"])
 def put(path, token):
     """
     fully update an object.
     """
-    update = request.json
-
-    layers = path.split("/")
-
-    data = loadData(token)
-
-    col = getByKeys(data, layers[:-1])
-
-    if col == None or not layers[-1] in col or col[layers[-1]] == None:
-        return {"code": 404}, 404
-
-    col[layers[-1]] = update
-
-    saveData(token, data)
-
-    return update, 200
+    model = ViewModel(token)
+    try:
+        return model.update(request.json, path), 200
+    except Exception:
+        return ERROR_404, 404
 
 @app.route("/v1/<token>/<path:path>", methods=["PATCH"])
 def patch(path, token):
     """
     Partially update an object
     """
-    update = request.json
-
-    layers = path.split("/")
-
-    data = loadData(token)
-
-    elem = getByKeys(data, layers)
-
-    if elem == None:
-        return {"code": 404}, 404
-
-    for key in update:
-        elem[key] = update[key]
-
-    saveData(token, data)
-
-    return elem, 200
+    model = ViewModel(token)
+    try:
+        elem = model.read(path)
+        if request.json != None:
+            for k in request.json:
+                elem[k] = request.json[k]
+        return model.update(elem, path), 200
+    except Exception:
+        return ERROR_404, 404
 
 @app.route("/v1/<token>/<path:path>", methods=["DELETE"])
 def delete(path, token):
-    layers = path.split("/")
-
-    data = loadData(token)
-
-    col = getByKeys(data,layers[:-1])
-
-    if col == None or not layers[-1] in col or col[layers[-1]] == None:
-        return {"code": 404}, 404
-
-    del col[layers[-1]]
-
-    saveData(token, data)
-
-    return {"code": 204}, 204
+    model = ViewModel(token)
+    try:
+        model.delete(path)
+        return "", 200
+    except Exception:
+        return ERROR_404, 404
 
 @app.after_request
 def after_request_func(response):

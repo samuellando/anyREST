@@ -1,59 +1,36 @@
-class viewModel:
-    def __init__(token):
+from .model import Model
+
+class ViewModel:
+    DATA_DIR = "data"
+    def __init__(self, token, dataDir=DATA_DIR):
         self.token = token
-        self.model = Model(token)
+        self.model = Model(token, dataDir)
 
-    def create(self, path, e):
+    def create(self, e, path):
         layers = path.split("/")
-        data = self.model.read([])
+        return self.model.insert(e, layers)
 
-        parents = {}
-        for l in reversed(layers):
-            parents = {l: parents}
-
-
-        {}
-
-        tests/0/cols
-
-        p = {tests: {0: cols: {}}}
-
-        p = data
-        insertLayers = []
-        for l in layers:
-            if l in p:
-                parents = parents[l]
-                p = p[l]
-                insertLayers.append(l)
-            else:
-                p[l] = parents[l]
-                break
-
-        p2 = p
-        while len(p2.keys()) > 0:
-            p2 = p2[p2.keys()[0]]
-
-        if len(p2.keys()) > 0:
+    def read(self, path):
+        layers = path.split("/")
+        data = self.model.read(layers)
+        # If all elements in data have an int id, convert to a list.
+        isList = True 
+        for k in data.keys():
             try:
-                id = str(max(map(lambda x:int(x), p2.keys())) + 1)
+                int(k)
             except ValueError:
-                return None
+                isList = False
+
+        if isList:
+            return list(data.values())
         else:
-            id = "0"
+            return data
 
-        e["id"] = int(id)
-        p2[id] = e
-
-        return self.model.write(insertLayers, p)
-
-    def read(self, path, obj):
+    def update(self, e, path):
         layers = path.split("/")
-        return self.model.read(layers)
+        return self.model.write(e, layers)
 
-    def update(self, path, obj):
+    def delete(self, path):
         layers = path.split("/")
-        return self.model.write(layers, obj)
-
-    def delete(self, path, obj):
-        layers = path.split("/")
+        print(layers)
         return self.model.remove(layers)
