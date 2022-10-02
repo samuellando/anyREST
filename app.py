@@ -4,6 +4,7 @@ from markupsafe import escape
 import json
 import secrets
 from lib.viewModel import ViewModel
+import lib.utils as utils
 
 app = Flask(__name__)
 
@@ -106,56 +107,26 @@ def after_request_func(response):
         return response
 
 
-    # Filtering (lists).
-    if type(data) is list:
-        for f in request.args:
-            # Exclude the other params
-            if f in ['pretty', 'fields','sort']:
-                continue
-            new = []
-            for e in data:
-                if str(e.get(f)) == request.args[f]:
-                        new.append(e)
-            data = new
+    # Filtering.
+    exclude = ['pretty', 'fields','sort']
+    filters  = {}
+    for f in request.args:
+        # Exclude the other params
+        if not f in exclude:
+            filters[f] = request.args[f]
+    data = utils.filter(data, filters)
 
-    # Sorting (lists).
+    # Sorting.
     sorts = request.args.get('sort')
-    if sorts != None and type(data) is list:
+    if sorts != None:
         sorts = sorts.split(",")
-
-        keys = getKeys(data, sorts)
-
-        print(keys)
-
-        for i in range(len(data)):
-            data[i] = [keys[i], data[i]]
-
-        data.sort(key=lambda e : e[0])
-
-        for i in range(len(data)):
-            data[i] = data[i][1]
-
+        data = utils.sort(data, sorts)
 
     # Only include certain feilds in the output.
     fields = request.args.get('fields')
     if fields != None:
         fields = fields.split(",")
-        if type(data) is dict:
-            new = [data]
-        else:
-            new = data
-        for i in range(len(new)):
-            e = {}
-            for f in fields:
-                if f in new[i]:
-                    e[f] = new[i][f]
-            new[i] = e
-
-        print(new)
-        if type(data) is dict:
-            data = new[0]
-        else:
-            data = new
+        data = utils.fields(data, fields)
 
     # Pretty print the json.
     pretty = request.args.get('pretty')
@@ -166,41 +137,3 @@ def after_request_func(response):
 
     return response
 
-def getKeys(data, sorts):
-    keys = [()] * len(data)
-    for sort in sorts:
-        # Check if all types match.
-        match = True
-        t = None
-        for e in data:
-            if sort in e:
-                if t == None:
-                    t = type(e[sort])
-                else:
-                    if t != type(e[sort]):
-                        match = False
-                        break
-            
-        # Set the default value.
-        if t is None:
-            continue
-        elif t is int or t is float:
-            default = 0
-        elif t is str:
-            default = ""
-        elif t is list:
-            defualt = []
-        elif t is bool:
-            default = False
-        else: # dict, ...
-            match = False
-
-        if match:
-            f = lambda e : e[sort] if sort in e else default
-        else:
-            f = lambda e : str(e[sort]) if sort in e else ""
-
-        for i in range(len(data)):
-            keys[i] = (*keys[i], f(data[i]))
-
-        return keys
