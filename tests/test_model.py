@@ -1,10 +1,6 @@
 import unittest
-import time
-import shutil
-import os
 
-
-from .model import Model
+from anyrest.model import Model
 
 class testModel(unittest.TestCase):
     def setUp(self):

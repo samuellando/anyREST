@@ -5,3 +5,6 @@ __pycache__/*
 key.json
 .env
 venv/*
+
+*.egg
+*.egg-info

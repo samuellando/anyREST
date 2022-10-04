@@ -3,7 +3,7 @@ import shutil
 import os
 
 
-from viewModel import ViewModel
+from anyrest.viewModel import ViewModel
 
 class testModel(unittest.TestCase):
     def setUp(self):

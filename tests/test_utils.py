@@ -1,6 +1,6 @@
 import unittest
 
-from utils import filter, fields, sort
+from anyrest.utils import filter, fields, sort
 
 class testUtils(unittest.TestCase):
     def setUp(self):
