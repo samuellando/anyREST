@@ -4,8 +4,11 @@ import os
 PROJECT = os.environ.get("PROJECT")
 
 class Odr:
-    def __init__(self):
-        self.db = firestore.Client(project=PROJECT)
+    def __init__(self, db=None):
+        if db is None:
+            self.db = firestore.Client(project=PROJECT)
+        else:
+            self.db = db
 
     def _dig(self, doc_ref, depth=0):
         doc = doc_ref.get()
