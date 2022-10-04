@@ -1,8 +1,8 @@
 from flask import Blueprint, request, render_template
 import json
 import secrets
-from viewModel import ViewModel
-import utils as utils
+from .viewModel import ViewModel
+from .utils import sort, filter, fields as utils_fields
 
 api = Blueprint("anyrest api", __name__, template_folder="templates")
 
@@ -104,19 +104,19 @@ def after_request_func(response):
         # Exclude the other params
         if not f in exclude:
             filters[f] = request.args[f]
-    data = utils.filter(data, filters)
+    data = filter(data, filters)
 
     # Sorting.
     sorts = request.args.get('sort')
     if sorts != None:
         sorts = sorts.split(",")
-        data = utils.sort(data, sorts)
+        data = sort(data, sorts)
 
     # Only include certain feilds in the output.
     fields = request.args.get('fields')
     if fields != None:
         fields = fields.split(",")
-        data = utils.fields(data, fields)
+        data = utils_fields(data, fields)
 
     # Pretty print the json.
     pretty = request.args.get('pretty')

@@ -1,10 +1,11 @@
 data/*
 meta.json
-__pycache__/*
-*/__pycache__/*
+*__pycache__*
 key.json
 .env
 venv/*
 
 *.egg
 *.egg-info
+.tox/*
+.coverage

@@ -1,5 +1,5 @@
 from flask import Flask
-from anyrest.handlers import api
+from anyrest import handlers
 
 app = Flask(__name__)
-app.register_blueprint(api)
+app.register_blueprint(handlers.api)

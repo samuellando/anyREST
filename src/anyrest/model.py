@@ -1,5 +1,4 @@
 import time
-import json
 from .firestore_odr import Odr
 
 class Model:

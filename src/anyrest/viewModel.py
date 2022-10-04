@@ -1,10 +1,9 @@
 from .model import Model
 
 class ViewModel:
-    DATA_DIR = "data"
-    def __init__(self, token, dataDir=DATA_DIR):
+    def __init__(self, token):
         self.token = token
-        self.model = Model(token, dataDir)
+        self.model = Model(token)
 
     def create(self, e, path):
         return self.model.insert(e, path)
