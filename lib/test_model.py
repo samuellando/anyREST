@@ -4,32 +4,15 @@ import shutil
 import os
 
 
-from model import Model
+from .model import Model
 
 class testModel(unittest.TestCase):
     def setUp(self):
-        self.data = "testData"
         self.token = "testtoken"
-        self.model = Model(self.token, self.data)
- 
-        # recreate the dir. 
-        cwd = os.getcwd()
-        path = os.path.join(cwd, self.data)
-       
-        try:
-            shutil.rmtree(path)
-        except FileNotFoundError:
-            pass
-        os.makedirs(path)
+        self.model = Model(self.token)
 
     def tearDown(self):
-        cwd = os.getcwd()
-        path = os.path.join(cwd, self.data)
-       
-        try:
-            shutil.rmtree(path)
-        except FileNotFoundError:
-            pass
+        self.model.remove("")
 
     def test_write(self):
         # Write at base.

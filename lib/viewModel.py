@@ -7,12 +7,10 @@ class ViewModel:
         self.model = Model(token, dataDir)
 
     def create(self, e, path):
-        layers = path.split("/")
-        return self.model.insert(e, layers)
+        return self.model.insert(e, path)
 
     def read(self, path):
-        layers = path.split("/")
-        data = self.model.read(layers)
+        data = self.model.read(path)
         # If all elements in data have an int id, convert to a list.
         isList = True 
         for k in data.keys():
@@ -27,10 +25,10 @@ class ViewModel:
             return data
 
     def update(self, e, path):
-        layers = path.split("/")
-        return self.model.write(e, layers)
+        return self.model.write(e, path)
+
+    def partialUpdate(self, e, path):
+        return self.model.update(e, path)
 
     def delete(self, path):
-        layers = path.split("/")
-        print(layers)
-        return self.model.remove(layers)
+        self.model.remove(path)

@@ -30,9 +30,13 @@ def createNew():
     """
     Generate a new random token, and display a informational page.
     """
-    token = secrets.token_urlsafe(16)
-    model = ViewModel(token)
-    model.update({}, "")
+    while True:
+        try:
+            token = secrets.token_urlsafe(16)
+            model = ViewModel(token)
+            model.read("")
+        except:
+            break
     return render_template("new.html", url=request.base_url[:-1*len(request.path)], token=token)
 
 @app.route("/v1/<token>", methods=["GET"])
@@ -47,6 +51,7 @@ def get(path, token):
     model = ViewModel(token)
     try:
         data = model.read(path)
+        # Because it might be a list.
         return json.dumps(data)
     except Exception:
         return ERROR_404, 404
@@ -67,10 +72,7 @@ def put(path, token):
     fully update an object.
     """
     model = ViewModel(token)
-    try:
-        return model.update(request.json, path), 200
-    except Exception:
-        return ERROR_404, 404
+    return model.update(request.json, path), 200
 
 @app.route("/v1/<token>/<path:path>", methods=["PATCH"])
 def patch(path, token):
@@ -78,23 +80,13 @@ def patch(path, token):
     Partially update an object
     """
     model = ViewModel(token)
-    try:
-        elem = model.read(path)
-        if request.json != None:
-            for k in request.json:
-                elem[k] = request.json[k]
-        return model.update(elem, path), 200
-    except Exception:
-        return ERROR_404, 404
+    return model.partialUpdate(request.json, path), 200
 
 @app.route("/v1/<token>/<path:path>", methods=["DELETE"])
 def delete(path, token):
     model = ViewModel(token)
-    try:
-        model.delete(path)
-        return "", 200
-    except Exception:
-        return ERROR_404, 404
+    model.delete(path)
+    return "", 200
 
 @app.after_request
 def after_request_func(response):
