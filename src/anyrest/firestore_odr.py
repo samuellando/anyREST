@@ -17,13 +17,11 @@ class Odr:
             data = doc.to_dict()
         else:
             if depth == 0 and len(list(cols)) == 0:
-                raise Exception("Not found.")
+                raise KeyError
             data = {}
         for col in cols:
-            print(f'In col {col.id}')
             data[col.id] = {}
             for d in col.list_documents():
-                print(f'\t{d.id}')
                 data[col.id][d.id] = self._dig(d, depth=depth+1)
 
         return data
@@ -34,7 +32,7 @@ class Odr:
         else:
             data = doc_ref.get()
             if not data.exists:
-                raise Exception("Not found.")
+                raise KeyError
             else:
                 return data.to_dict()
 
@@ -47,7 +45,7 @@ class Odr:
             docsl = list(col_ref.list_documents())
 
             if len(docsl) == 0:
-                raise Exception("Not found.")
+                raise KeyError
             data = {}
             for doc in docsl:
                 data[doc.id] = self._getDoc(doc, recursive)
