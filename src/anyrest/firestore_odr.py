@@ -19,11 +19,9 @@ class Odr:
         doc = doc_ref.get()
         cols = doc_ref.collections()
         data: Union[dict, None] = doc.to_dict()
+        data = data if data else {}
 
-        if data is None:
-            # If the document does not exist.
-            data = {}
-        else:
+        if not doc.exists:
             if depth == 0 and len(list(cols)) == 0:
                 raise KeyError
 
@@ -40,7 +38,8 @@ class Odr:
         else:
             data = doc_ref.get()
             d: Union[dict, None] = data.to_dict()
-            if d is None:
+            d = d if d else {}
+            if not data.exists:
                 # If document does not exist.
                 raise KeyError
             else:

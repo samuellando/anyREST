@@ -19,7 +19,8 @@ def odr(db):
         ])
 class TestCases:
     def test_set(self, path, data, odr, db):
-        odr.set(path, data)
+        ret = odr.set(path, data)
+        assert ret == data
         r = db.document(path).get()
         assert r.exists
         d = r.to_dict()
@@ -52,7 +53,11 @@ class TestCases:
     def test_update_existsing_data(self, path, data, odr, db):
         db.document(path).set(data)
 
-        odr.update(path, {"new": "newData"})
+        insert = {"new": "newData"}
+        ret = odr.update(path, insert)
+        for k in data:
+            insert[k] = data[k]
+        assert ret == insert
 
         r = db.document(path).get()
         assert r.exists
@@ -83,7 +88,7 @@ class TestCases:
         with pytest.raises(KeyError):
             odr.get(path)
 
-    def test_get_nonexisting_data_nonrecursize(self, path, data, odr):
+    def test_get_nonexisting_data_nonrecursive(self, path, data, odr):
         with pytest.raises(KeyError):
             odr.get(path, recursive=False)
 
@@ -92,7 +97,9 @@ class TestCases:
             odr.get(path+"/col")
     
     def test_update_nonexistsing_data(self, path, data, odr, db):
-        odr.update(path, {"new": "newData"})
+        insert = {"new": "newData"}
+        ret = odr.update(path, insert)
+        assert ret == insert
 
         r = db.document(path).get()
         assert r.exists
