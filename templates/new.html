@@ -1,0 +1,13 @@
+<!doctype html>
+<title>Hello from Flask</title>
+{% if token %}
+<h1>Success!</h1>
+<p>You can now send requests to the <a href="{{url}}/v1/{{token}}">{{url}}/v1/{{token}}</a> endpoint. See the 
+<a href="/doc">doc</a> for more information</p>
+{% else %}
+<h1>Create a new unique token.</h1>
+
+<form method="post">
+  <input type="submit" value="create">
+</form>
+{% endif %}
