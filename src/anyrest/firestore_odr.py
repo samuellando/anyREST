@@ -1,14 +1,13 @@
 from google.cloud import firestore
 from google.cloud.firestore import DocumentReference
-from typing import Optional, Any, Union
+from typing import Optional, Union
+from .abstract_odr import AbstractOdr, dict
 import os
 
 PROJECT = os.environ.get("PROJECT")
 
-dict = dict[str, Any]
 
-
-class Odr:
+class FirestoreOdr(AbstractOdr):
     def __init__(self, db: Optional[firestore.Client] = None):
         if db is None:
             self.db = firestore.Client(project=PROJECT)
@@ -76,6 +75,7 @@ class Odr:
             ref = self.db.document(path)
         else:
             ref = self.db.collection(path)
+
         self.db.recursive_delete(
                 reference=ref,
                 bulk_writer=self.db.bulk_writer()

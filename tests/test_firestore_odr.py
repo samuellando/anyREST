@@ -1,5 +1,5 @@
 import pytest
-from anyrest.firestore_odr import Odr
+from anyrest.firestore_odr import FirestoreOdr
 from mockfirestore import MockFirestore
 
 
@@ -11,7 +11,7 @@ def db():
 
 @pytest.fixture()
 def odr(db):
-    odr = Odr(db)
+    odr = FirestoreOdr(db)
     return odr
 
 @pytest.mark.parametrize("path,data", [
@@ -112,3 +112,19 @@ class TestCases:
         odr.delete(path)
         r = db.document(path).get()
         assert not r.exists
+
+    def test_get_bad_path(self, path, data, odr, db):
+        with pytest.raises(ValueError):
+            odr.get("")
+
+    def test_set_bad_path(self, path, data, odr, db):
+        with pytest.raises(ValueError):
+            odr.set("", data)
+
+    def test_update_bad_path(self, path, data, odr, db):
+        with pytest.raises(ValueError):
+            odr.update("", data)
+
+    def test_delete_bad_path(self, path, data, odr, db):
+        with pytest.raises(ValueError):
+            odr.delete("")

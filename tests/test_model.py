@@ -1,109 +1,79 @@
-import unittest
-
+import pytest
+from anyrest.firestore_odr import FirestoreOdr 
+from mockfirestore import MockFirestore
 from anyrest.model import Model
 
-class testModel(unittest.TestCase):
-    def setUp(self):
-        self.token = "testtoken"
-        self.model = Model(self.token)
+TOKEN = "testtoken"
+BASE = f'tokens/{TOKEN}/'
 
-    def tearDown(self):
-        self.model.remove("")
+@pytest.fixture()
+def db():
+    db = MockFirestore()
+    db.reset()
+    return db
 
-    def test_write(self):
-        # Write at base.
+@pytest.fixture()
+def model(db):
+    odr = FirestoreOdr(db)
+    model = Model(TOKEN, odr)
+    return model
+
+@pytest.mark.parametrize("path,data", [
+        ("this/is/an/example/path/0", {"test": "data"}),
+        ("this/is/an/example/path/doc", {"test": "data"})
+        ])
+class TestCases:
+    def test_read_existing(self, model, db, path, data):
+        db.document(BASE+path).set(data)
+        assert model.read(path) == data
+
+    def test_read_nonexisting(self, model, db, path, data):
+        with pytest.raises(KeyError):
+            model.read(path)
+
+    def test_insert_existsing(self, model, db, path, data):
+        id = path.split("/")[-1]
+        colpath = "/".join(path.split("/")[:-1])
         try:
-            wdata = self.model.write({"libs": {"0": {"cols": {"0": {"name": "Sam"}}}}})
+            id = str(int(id) + 1)
         except:
-            self.assertTrue(False)
-            return 
-        if wdata != None:
-            self.assertTrue(wdata["libs"]["0"]["cols"]["0"]["name"] == "Sam")
-        else:
-            self.assertTrue(False)
+            id = "0"
+        db.document(BASE+path).set(data)
+        r = model.insert(data, colpath)
+        assert r == data
+        r = db.document(f'{BASE}{colpath}/{id}').get().to_dict()
+        assert r == data
 
-        data = self.model.read("libs/0/cols/0".split("/"))
-        self.assertTrue(data["name"] == "Sam")
+    def test_insert_nonexisting(self, model, db, path, data):
+        id = "0"
+        colpath = "/".join(path.split("/")[:-1])
+        r = model.insert(data, colpath)
+        assert r == data
+        r = db.document(f'{BASE}{colpath}/{id}').get().to_dict()
+        assert r == data
 
-        # Write at layer.
-        try:
-            wdata = self.model.write({"name": "Fabio"}, "libs/0/cols/1".split("/"))
-        except:
-            self.assertTrue(False)
-            return 
-        if wdata != None:
-            self.assertTrue(wdata["name"] == "Fabio")
-        else:
-            self.assertTrue(False)
+    def test_write(self, model, db, path, data):
+        r = model.write(data, path)
+        assert r == data
+        r = db.document(f'{BASE}{path}').get().to_dict()
+        assert r == data
 
-        data = self.model.read("libs/0/cols/1".split("/"))
-        self.assertTrue(data["name"] == "Fabio")
+    def test_update_existsing(self, model, db, path, data):
+        db.document(BASE+path).set(data)
+        r = model.update({"new": "newdata"}, path)
+        data["new"] = "newdata"
+        assert r == data
+        r = db.document(f'{BASE}{path}').get().to_dict()
+        assert r == data
 
-        # Write on non exitant layers.
-        with self.assertRaises(Exception):
-                self.model.write({"name": "Fabio"}, "cols/0/dne")
+    def test_update_nonexisting(self, model, db, path, data):
+        r = model.update(data, path)
+        assert r == data
+        r = db.document(f'{BASE}{path}').get().to_dict()
+        assert r == data
 
-    def test_insert(self):
-        try:
-            wdata = self.model.insert({"name": "Sam"}, "libs/0/cols".split("/"))
-        except:
-            self.assertTrue(False)
-            return
-        if wdata != None:
-            self.assertTrue(wdata["name"] == "Sam")
-        else:
-            self.assertTrue(False)
-        data = self.model.read("libs/0/cols/0".split("/"))
-        self.assertTrue(data["name"] == "Sam")
-
-        self.model.write({"name": "Fabio"}, "libs/0/cols/test".split("/"))
-
-        try:
-            wdata = self.model.insert({"name": "Mariano"}, "libs/0/cols".split("/"))
-        except:
-            self.assertTrue(False)
-            return
-        if wdata != None:
-            self.assertTrue(wdata["name"] == "Mariano")
-        else:
-            self.assertTrue(False)
-        data = self.model.read("libs/0/cols/1".split("/"))
-        self.assertTrue(data["name"] == "Mariano")
-
-
-    def test_remove(self):
-        self.model.insert({"name": "Sam"}, "libs/0/cols".split("/"))
-        self.model.insert({"name": "Fabio"}, "libs/0/cols".split("/"))
-        self.model.insert({"name": "Mariano"}, "libs/0/cols".split("/"))
-
-        self.model.remove("libs/0/cols/1".split("/"))
-
-        self.model.read("libs/0/cols/0".split("/"))
-        self.model.read("libs/0/cols/2".split("/"))
-        try:
-            self.model.read("libs/o/cols/1".split("/"))
-            self.assertTrue(False)
-            return
-        except:
-            pass
-
-    def test_read(self):
-        self.model.insert({"name": "Sam"}, "libs/0/cols".split("/"))
-
-        try:
-            data = self.model.read("libs/0/cols/0".split("/"))
-        except:
-            self.assertTrue(False)
-            return
-
-        if data != None:
-           self.assertTrue(data["name"] == "Sam")
-        else:
-            self.assertTrue(False)
-
-        with self.assertRaises(Exception):
-            self.model.read("libs/0/cols/1".split("/"))
-
-
-if __name__ == "__main__":
-    unittest.main()
+    def test_delete(self, model, db, path, data):
+        db.document(BASE+path).set(data)
+        model.remove(path)
+        r = db.document(BASE+path).get()
+        assert not r.exists 
