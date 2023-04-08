@@ -1,1 +1,5 @@
 venv/*
+main.py
+__pycache__/*
+anyrest.egg-info/*
+build/*

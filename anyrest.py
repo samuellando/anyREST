@@ -2,7 +2,6 @@ from flask import Flask, request
 import json
 import firebase_admin
 from firebase_admin import firestore
-from flask_cors import CORS
 
 import os
 os.environ['GRPC_DNS_RESOLVER'] = 'native'
@@ -106,6 +105,5 @@ if __name__ == '__main__':
 
     app = Flask(__name__)
     from flask_cors import CORS
-    CORS(app)
     addAnyrestHandlers(app, db)
     app.run(host='127.0.0.1', port=8080, debug=True)
