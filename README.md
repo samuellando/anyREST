@@ -1,1 +1,1 @@
-anyREST
+AnyREST is a API enpoint that accepts, stores and returns any data. It's puirpose is to act as a mock backend during backend, but it can also be used in production environments for projects with non-strict requirements.
