@@ -10,10 +10,6 @@ def anyrest_insert(db, path):
     data = json.loads(request.data)
     return insert_data_into_firestore(data, db.collection(path))
 
-def anyrest_insert_base(db):
-    data = json.loads(request.data)
-    return insert_data_into_firestore(data, db.collection("anyrest"))
-
 def insert_data_into_firestore(data, ref, merge=False):
     # Make sure the parameters are valid, throw.
     if not isinstance(data, dict):
@@ -45,9 +41,6 @@ def anyrest_get(db, path):
         ref = db.collection(path)
 
     return get_data_from_firestore(ref)
-
-def anyrest_get_base(db):
-    return get_data_from_firestore(db.collection("anyrest"))
 
 def get_data_from_firestore(ref):
     if isinstance(ref, firestore.CollectionReference):
@@ -92,9 +85,7 @@ def anyrest_delete(db,path):
 
 def addAnyrestHandlers(app, db):
     app.add_url_rule('/api/<path:path>', endpoint="anyrest_post_path", view_func=lambda path : anyrest_insert(db, path), methods=["POST"])
-    app.add_url_rule('/api', endpoint="anyrest_post", view_func=lambda : anyrest_insert_base(db), methods=["POST"])
     app.add_url_rule('/api/<path:path>', endpoint="anyrest_get_path", view_func=lambda path : anyrest_get(db, path), methods=["GET"])
-    app.add_url_rule('/api', endpoint="anyrest_get", view_func=lambda : anyrest_get_base(db), methods=["GET"])
     app.add_url_rule('/api/<path:path>', endpoint="anyrest_patch_path", view_func=lambda path : anyrest_patch(db, path), methods=["PATCH"])
     app.add_url_rule('/api/<path:path>', endpoint="anyrest_put_path", view_func=lambda path : anyrest_put(db, path), methods=["PUT"])
     app.add_url_rule('/api/<path:path>', endpoint="anyrest_delete_path", view_func=lambda path : anyrest_delete(db, path), methods=["DELETE"])
