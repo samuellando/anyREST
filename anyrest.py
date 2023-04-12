@@ -1,5 +1,6 @@
 from flask import Flask, request
 import json
+import secrets
 import firebase_admin
 from firebase_admin import firestore
 
@@ -83,12 +84,72 @@ def anyrest_delete(db,path):
     else:
         return {"code": 404}
 
-def addAnyrestHandlers(app, db):
-    app.add_url_rule('/api/<path:path>', endpoint="anyrest_post_path", view_func=lambda path : anyrest_insert(db, path), methods=["POST"])
-    app.add_url_rule('/api/<path:path>', endpoint="anyrest_get_path", view_func=lambda path : anyrest_get(db, path), methods=["GET"])
-    app.add_url_rule('/api/<path:path>', endpoint="anyrest_patch_path", view_func=lambda path : anyrest_patch(db, path), methods=["PATCH"])
-    app.add_url_rule('/api/<path:path>', endpoint="anyrest_put_path", view_func=lambda path : anyrest_put(db, path), methods=["PUT"])
-    app.add_url_rule('/api/<path:path>', endpoint="anyrest_delete_path", view_func=lambda path : anyrest_delete(db, path), methods=["DELETE"])
+def get_api_key(require_ath, db):
+    with require_ath.acquire() as token:
+        user = token.sub
+        api_keys = db.collection("api-keys")
+        query = api_keys.where("user", "==", user).stream()
+        for key in query:
+            return {"api-key": key.id}
+        # Otherwise create a unique key for the user.
+        api_key = secrets.token_urlsafe(64)
+        while api_keys.document(api_key).get().exists:
+            api_key = secrets.token_urlsafe(64)
+        api_keys.document(api_key).set({"user": user})
+        return {"api-key": api_key}
+
+def delete_api_key(require_ath, db):
+    with require_ath.acquire() as token:
+        user = token.sub
+        api_keys = db.collection("api-keys")
+        query = api_keys.where("user", "==", user).stream()
+        for key in query:
+            key.reference.delete()
+        return {"code": 200}
+
+
+def protect(require_auth, db, path, fn):
+    user = None
+    try:
+        with require_auth.acquire() as token:
+            user = token.sub
+    except:
+        if "api-key" in request.headers:
+            key = request.headers["api-key"]
+            user = anyrest_get(db, "api-keys/"+key)["user"]
+
+    if user is None:
+        return {"message": 401}, 401
+    else:
+        print(user)
+        return fn(db, "users/{}/{}".format(user, path))
+
+def addAnyrestHandlers(app, db, authority=None, audience=None):
+    if authority is not None:
+        from authlib.integrations.flask_oauth2 import ResourceProtector
+        from validator import Auth0JWTBearerTokenValidator
+        require_auth = ResourceProtector()
+        validator = Auth0JWTBearerTokenValidator(
+            authority,
+            audience
+        )
+        require_auth.register_token_validator(validator)
+        app.add_url_rule('/api-key', endpoint="anyrest_get_api_key", view_func=lambda : get_api_key(require_auth, db), methods=["GET"])
+        app.add_url_rule('/api-key', endpoint="anyrest_delete_api_key", view_func=lambda : delete_api_key(require_auth, db), methods=["DELETE"])
+    else:
+        validator = None
+
+    def wrap(fn):
+        if validator is None:
+            return lambda path: fn(db, path)
+        else:
+            return lambda path: protect(require_auth, db, path, fn)
+
+    app.add_url_rule('/api/<path:path>', endpoint="anyrest_post_path", view_func=wrap(anyrest_insert), methods=["POST"])
+    app.add_url_rule('/api/<path:path>', endpoint="anyrest_get_path", view_func=wrap(anyrest_get), methods=["GET"])
+    app.add_url_rule('/api/<path:path>', endpoint="anyrest_patch_path", view_func=wrap(anyrest_patch), methods=["PATCH"])
+    app.add_url_rule('/api/<path:path>', endpoint="anyrest_put_path", view_func=wrap(anyrest_put), methods=["PUT"])
+    app.add_url_rule('/api/<path:path>', endpoint="anyrest_delete_path", view_func=wrap(anyrest_delete), methods=["DELETE"])
 
 if __name__ == '__main__':
     firebase_app = firebase_admin.initialize_app()
@@ -96,5 +157,6 @@ if __name__ == '__main__':
 
     app = Flask(__name__)
     from flask_cors import CORS
+    CORS(app)
     addAnyrestHandlers(app, db)
     app.run(host='127.0.0.1', port=8080, debug=True)

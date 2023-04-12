@@ -6,6 +6,8 @@ setup(
     py_modules=['anyrest'],
     install_requires=[
         'flask',
-        'firebase-admin'
+        'firebase-admin',
+        'AuthLib',
+        'flask-cors'
     ],
 )
