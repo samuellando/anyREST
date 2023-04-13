@@ -121,7 +121,6 @@ def protect(require_auth, db, path, fn):
     if user is None:
         return {"message": 401}, 401
     else:
-        print(user)
         return fn(db, "users/{}/{}".format(user, path))
 
 def addAnyrestHandlers(app, db, authority=None, audience=None):
