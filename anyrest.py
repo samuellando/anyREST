@@ -145,11 +145,21 @@ def addAnyrestHandlers(app, db, authority=None, audience=None):
         else:
             return lambda path: protect(require_auth, db, path, fn)
 
-    app.add_url_rule('/api/<path:path>', endpoint="anyrest_post_path", view_func=wrap(anyrest_insert), methods=["POST"])
-    app.add_url_rule('/api/<path:path>', endpoint="anyrest_get_path", view_func=wrap(anyrest_get), methods=["GET"])
-    app.add_url_rule('/api/<path:path>', endpoint="anyrest_patch_path", view_func=wrap(anyrest_patch), methods=["PATCH"])
-    app.add_url_rule('/api/<path:path>', endpoint="anyrest_put_path", view_func=wrap(anyrest_put), methods=["PUT"])
-    app.add_url_rule('/api/<path:path>', endpoint="anyrest_delete_path", view_func=wrap(anyrest_delete), methods=["DELETE"])
+    funcs = {
+            "GET":wrap(anyrest_get),
+            "POST":wrap(anyrest_insert),
+            "PATCH":wrap(anyrest_patch),
+            "PUT":wrap(anyrest_put),
+            "DELETE":wrap(anyrest_delete)
+            }
+
+    app.add_url_rule('/api/<path:path>', endpoint="anyrest_post_path", view_func=funcs["POST"], methods=["POST"])
+    app.add_url_rule('/api/<path:path>', endpoint="anyrest_get_path", view_func=funcs["GET"], methods=["GET"])
+    app.add_url_rule('/api/<path:path>', endpoint="anyrest_patch_path", view_func=funcs["PATCH"], methods=["PATCH"])
+    app.add_url_rule('/api/<path:path>', endpoint="anyrest_put_path", view_func=funcs["PUT"], methods=["PUT"])
+    app.add_url_rule('/api/<path:path>', endpoint="anyrest_delete_path", view_func=funcs["DELETE"], methods=["DELETE"])
+
+    return funcs
 
 if __name__ == '__main__':
     firebase_app = firebase_admin.initialize_app()
