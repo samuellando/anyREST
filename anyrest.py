@@ -7,8 +7,9 @@ from firebase_admin import firestore
 import os
 os.environ['GRPC_DNS_RESOLVER'] = 'native'
 
-def anyrest_insert(db, path):
-    data = json.loads(request.data)
+def anyrest_insert(db, path, data):
+    if data is None:
+        data = json.loads(request.data)
     return insert_data_into_firestore(data, db.collection(path))
 
 def insert_data_into_firestore(data, ref, merge=False):
@@ -34,7 +35,7 @@ def insert_data_into_firestore(data, ref, merge=False):
 
     return {"id": ref.id, "data": ref.get().to_dict()}
 
-def anyrest_get(db, path):
+def anyrest_get(db, path, data):
     if len(path.split("/")) % 2 == 0:
         ref = db.collection(path[:path.rindex("/")])
         ref = ref.document(path[path.rindex("/")+1:])
@@ -60,13 +61,15 @@ def get_data_from_firestore(ref):
         raise Exception("ref must be a firestore.CollectionReference or a firestore.DocumentReference")
 
 
-def anyrest_patch(db, path):
-    data = json.loads(request.data)
+def anyrest_patch(db, path, data):
+    if data is None:
+        data = json.loads(request.data)
     doc_ref = db.collection(path[:path.rindex("/")]).document(path[path.rindex("/")+1:])
     return insert_data_into_firestore(data, doc_ref, merge=True)
 
-def anyrest_put(db, path):
-    data = json.loads(request.data)
+def anyrest_put(db, path, data):
+    if data is None:
+        data = json.loads(request.data)
     doc_ref = db.collection(path[:path.rindex("/")]).document(path[path.rindex("/")+1:])
     # If document exists.
     if doc_ref.get().exists:
@@ -75,7 +78,7 @@ def anyrest_put(db, path):
     else:
         return {"code": 404}
 
-def anyrest_delete(db,path):
+def anyrest_delete(db,path, data):
     doc_ref = db.collection(path[:path.rindex("/")]).document(path[path.rindex("/")+1:])
     # If document exists.
     if doc_ref.get().exists:
@@ -108,7 +111,7 @@ def delete_api_key(require_ath, db):
         return {"code": 200}
 
 
-def protect(require_auth, db, path, fn):
+def protect(require_auth, db, path, fn, data):
     user = None
     try:
         with require_auth.acquire() as token:
@@ -116,12 +119,12 @@ def protect(require_auth, db, path, fn):
     except:
         if "api-key" in request.headers:
             key = request.headers["api-key"]
-            user = anyrest_get(db, "api-keys/"+key)["user"]
+            user = anyrest_get(db, "api-keys/"+key, None)["user"]
 
     if user is None:
         return {"message": 401}, 401
     else:
-        return fn(db, "users/{}/{}".format(user, path))
+        return fn(db, "users/{}/{}".format(user, path), data)
 
 def addAnyrestHandlers(app, db, authority=None, audience=None):
     if authority is not None:
@@ -140,9 +143,9 @@ def addAnyrestHandlers(app, db, authority=None, audience=None):
 
     def wrap(fn):
         if validator is None:
-            return lambda path: fn(db, path)
+            return lambda path, data=None: fn(db, path, data)
         else:
-            return lambda path: protect(require_auth, db, path, fn)
+            return lambda path, data=None: protect(require_auth, db, path, fn, data)
 
     funcs = {
             "GET":wrap(anyrest_get),
