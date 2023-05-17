@@ -126,7 +126,7 @@ def protect(require_auth, db, path, fn, data):
     else:
         return fn(db, "users/{}/{}".format(user, path), data)
 
-def addAnyrestHandlers(app, db, authority=None, audience=None):
+def addAnyrestHandlers(app, db, authority=None, audience=None, lock=False):
     if authority is not None:
         from authlib.integrations.flask_oauth2 import ResourceProtector
         from validator import Auth0JWTBearerTokenValidator
@@ -155,11 +155,12 @@ def addAnyrestHandlers(app, db, authority=None, audience=None):
             "DELETE":wrap(anyrest_delete)
             }
 
-    app.add_url_rule('/api/<path:path>', endpoint="anyrest_post_path", view_func=funcs["POST"], methods=["POST"])
-    app.add_url_rule('/api/<path:path>', endpoint="anyrest_get_path", view_func=funcs["GET"], methods=["GET"])
-    app.add_url_rule('/api/<path:path>', endpoint="anyrest_patch_path", view_func=funcs["PATCH"], methods=["PATCH"])
-    app.add_url_rule('/api/<path:path>', endpoint="anyrest_put_path", view_func=funcs["PUT"], methods=["PUT"])
-    app.add_url_rule('/api/<path:path>', endpoint="anyrest_delete_path", view_func=funcs["DELETE"], methods=["DELETE"])
+    if not lock:
+        app.add_url_rule('/api/<path:path>', endpoint="anyrest_post_path", view_func=funcs["POST"], methods=["POST"])
+        app.add_url_rule('/api/<path:path>', endpoint="anyrest_get_path", view_func=funcs["GET"], methods=["GET"])
+        app.add_url_rule('/api/<path:path>', endpoint="anyrest_patch_path", view_func=funcs["PATCH"], methods=["PATCH"])
+        app.add_url_rule('/api/<path:path>', endpoint="anyrest_put_path", view_func=funcs["PUT"], methods=["PUT"])
+        app.add_url_rule('/api/<path:path>', endpoint="anyrest_delete_path", view_func=funcs["DELETE"], methods=["DELETE"])
 
     return funcs
 
