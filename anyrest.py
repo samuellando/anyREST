@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, abort
 import json
 import secrets
 import firebase_admin
@@ -10,7 +10,12 @@ os.environ['GRPC_DNS_RESOLVER'] = 'native'
 def anyrest_insert(db, path, data):
     if data is None:
         data = json.loads(request.data)
-    return insert_data_into_firestore(data, db.collection(path))
+    if len(path.split("/")) % 2 == 0:
+        ref = db.collection(path[:path.rindex("/")])
+        ref = ref.document(path[path.rindex("/")+1:])
+    else:
+        ref = db.collection(path)
+    return insert_data_into_firestore(data, ref)
 
 def insert_data_into_firestore(data, ref, merge=False):
     # Make sure the parameters are valid, throw.
@@ -33,29 +38,41 @@ def insert_data_into_firestore(data, ref, merge=False):
         for d in l:
             insert_data_into_firestore(d, ref.collection(collection))
 
-    return {"id": ref.id, "data": ref.get().to_dict()}
+    data = ref.get().to_dict()
+    data["id"] = ref.id
+    return data
 
-def anyrest_get(db, path, data):
+def anyrest_get(db, path, recursive):
+    if recursive == None:
+        recursive = True
+
     if len(path.split("/")) % 2 == 0:
         ref = db.collection(path[:path.rindex("/")])
         ref = ref.document(path[path.rindex("/")+1:])
     else:
         ref = db.collection(path)
 
-    return get_data_from_firestore(ref)
+    return get_data_from_firestore(ref, recursive)
 
-def get_data_from_firestore(ref):
+
+def get_data_from_firestore(ref, recursive=True, data=None):
     if isinstance(ref, firestore.CollectionReference):
-
-        data = {}
+        data = []
         for doc in ref.stream():
-            data[doc.id] = get_data_from_firestore(doc.reference)
+            data.append(get_data_from_firestore(doc.reference, recursive, doc.to_dict()))
         return data
     elif isinstance(ref, firestore.DocumentReference):
-        data = ref.get().to_dict()
-        collections = ref.collections()
-        for collection in collections:
-            data[collection.id] = get_data_from_firestore(collection)
+        if data == None:
+            data = ref.get()
+            if not data.exists:
+                abort(404)
+            data = data.to_dict()
+        data["id"] = ref.id
+        if recursive:
+            collections = ref.collections()
+            for collection in collections:
+                data[collection.id] = get_data_from_firestore(collection)
+
         return data
     else:
         raise Exception("ref must be a firestore.CollectionReference or a firestore.DocumentReference")
@@ -65,7 +82,10 @@ def anyrest_patch(db, path, data):
     if data is None:
         data = json.loads(request.data)
     doc_ref = db.collection(path[:path.rindex("/")]).document(path[path.rindex("/")+1:])
-    return insert_data_into_firestore(data, doc_ref, merge=True)
+    if doc_ref.get().exists:
+        return insert_data_into_firestore(data, doc_ref, merge=True)
+    else:
+        abort(404)
 
 def anyrest_put(db, path, data):
     if data is None:
@@ -76,16 +96,16 @@ def anyrest_put(db, path, data):
         db.recursive_delete(doc_ref)
         return insert_data_into_firestore(data, doc_ref)
     else:
-        return {"code": 404}
+        abort(404)
 
 def anyrest_delete(db,path, data):
     doc_ref = db.collection(path[:path.rindex("/")]).document(path[path.rindex("/")+1:])
     # If document exists.
     if doc_ref.get().exists:
         db.recursive_delete(doc_ref)
-        return {"code": 200}
+        abort(200)
     else:
-        return {"code": 404}
+        abort(404)
 
 def get_api_key(require_ath, db):
     with require_ath.acquire() as token:
@@ -108,7 +128,7 @@ def delete_api_key(require_ath, db):
         query = api_keys.where("user", "==", user).stream()
         for key in query:
             key.reference.delete()
-        return {"code": 200}
+        abort(200)
 
 
 def protect(require_auth, db, path, fn, data):
@@ -122,7 +142,7 @@ def protect(require_auth, db, path, fn, data):
             user = anyrest_get(db, "api-keys/"+key, None)["user"]
 
     if user is None:
-        return {"message": 401}, 401
+        abort(401)
     else:
         return fn(db, "users/{}/{}".format(user, path), data)
 
@@ -147,20 +167,14 @@ def addAnyrestHandlers(app, db, authority=None, audience=None, lock=False):
         else:
             return lambda path, data=None: protect(require_auth, db, path, fn, data)
 
-    funcs = {
-            "GET":wrap(anyrest_get),
-            "POST":wrap(anyrest_insert),
-            "PATCH":wrap(anyrest_patch),
-            "PUT":wrap(anyrest_put),
-            "DELETE":wrap(anyrest_delete)
-            }
+    funcs = Handlers(wrap(anyrest_get), wrap(anyrest_insert), wrap(anyrest_patch), wrap(anyrest_put), wrap(anyrest_delete))
 
     if not lock:
-        app.add_url_rule('/api/<path:path>', endpoint="anyrest_post_path", view_func=funcs["POST"], methods=["POST"])
-        app.add_url_rule('/api/<path:path>', endpoint="anyrest_get_path", view_func=funcs["GET"], methods=["GET"])
-        app.add_url_rule('/api/<path:path>', endpoint="anyrest_patch_path", view_func=funcs["PATCH"], methods=["PATCH"])
-        app.add_url_rule('/api/<path:path>', endpoint="anyrest_put_path", view_func=funcs["PUT"], methods=["PUT"])
-        app.add_url_rule('/api/<path:path>', endpoint="anyrest_delete_path", view_func=funcs["DELETE"], methods=["DELETE"])
+        app.add_url_rule('/api/<path:path>', endpoint="anyrest_post_path", view_func=funcs.post, methods=["POST"])
+        app.add_url_rule('/api/<path:path>', endpoint="anyrest_get_path", view_func=funcs.get, methods=["GET"])
+        app.add_url_rule('/api/<path:path>', endpoint="anyrest_patch_path", view_func=funcs.patch, methods=["PATCH"])
+        app.add_url_rule('/api/<path:path>', endpoint="anyrest_put_path", view_func=funcs.put, methods=["PUT"])
+        app.add_url_rule('/api/<path:path>', endpoint="anyrest_delete_path", view_func=funcs.delete, methods=["DELETE"])
 
     return funcs
 
@@ -173,3 +187,11 @@ if __name__ == '__main__':
     CORS(app)
     addAnyrestHandlers(app, db)
     app.run(host='127.0.0.1', port=8080, debug=True)
+
+class Handlers:
+    def __init__(self, get, post, patch, put, delete):
+        self.get = get
+        self.post = post
+        self.patch = patch
+        self.put = put
+        self.delete = delete
