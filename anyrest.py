@@ -103,7 +103,7 @@ def anyrest_delete(db,path, data):
     # If document exists.
     if doc_ref.get().exists:
         db.recursive_delete(doc_ref)
-        abort(200)
+        return 200
     else:
         abort(404)
 
