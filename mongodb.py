@@ -31,12 +31,18 @@ class AnyrestHandlersMongoDB(AnyrestHandlers):
         del d["anyrest_path"]
         return d
 
+    def toObjectId(self,id):
+        try:
+            return ObjectId(id)
+        except:
+            return id
+
     def anyrest_insert(self, path, data):
         path, col, id = self.decunstructPath(path)
-        if id != None:
-            abort(400)
         if data is None:
             data = json.loads(request.data)
+        if id != None:
+            data["_id"] = id
         col = self.db[col]
         data["anyrest_path"] = path
         res = col.insert_one(data)
@@ -44,11 +50,12 @@ class AnyrestHandlersMongoDB(AnyrestHandlers):
 
     def anyrest_get(self, path, nothing):
         path, col, id = self.decunstructPath(path)
+        print(path, col, id)
         col = self.db[col]
         if id == None:
             return list(map(self.resToDict, col.find({"anyrest_path": path})))
         else:
-            res = col.find_one({"anyrest_path": path, "_id": ObjectId(id)})
+            res = col.find_one({"anyrest_path": path, "_id": self.toObjectId(id)})
             if res == None:
                 abort(404)
             else:
@@ -70,10 +77,10 @@ class AnyrestHandlersMongoDB(AnyrestHandlers):
         if data is None:
             data = json.loads(request.data)
         col = self.db[col]
-        res = col.update_one({"anyrest_path": path, "_id": ObjectId(id)}, {"$set": data})
+        res = col.update_one({"anyrest_path": path, "_id": self.toObjectId(id)}, {"$set": data})
         if res.matched_count == 0:
             abort(404)
-        res = col.find_one({"anyrest_path": path, "_id": ObjectId(id)})
+        res = col.find_one({"anyrest_path": path, "_id": self.toObjectId(id)})
         return self.resToDict(res)
 
     def anyrest_put(self, path, data):
@@ -84,10 +91,10 @@ class AnyrestHandlersMongoDB(AnyrestHandlers):
             data = json.loads(request.data)
         col = self.db[col]
         data["anyrest_path"] = path
-        res = col.replace_one({"anyrest_path": path, "_id": ObjectId(id)}, data)
+        res = col.replace_one({"anyrest_path": path, "_id": self.toObjectId(id)}, data)
         if res.matched_count == 0:
             abort(404)
-        res = col.find_one({"anyrest_path": path, "_id": ObjectId(id)})
+        res = col.find_one({"anyrest_path": path, "_id": self.toObjectId(id)})
         return self.resToDict(res)
 
     def anyrest_delete(self, path, noting):
@@ -95,7 +102,7 @@ class AnyrestHandlersMongoDB(AnyrestHandlers):
         if id == None:
             abort(400)
         col = self.db[col]
-        res = col.delete_one({"anyrest_path": path, "_id": ObjectId(id)})
+        res = col.delete_one({"anyrest_path": path, "_id": self.toObjectId(id)})
         if res.deleted_count == 0:
             abort(404)
         else:
