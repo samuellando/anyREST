@@ -38,6 +38,10 @@ class AnyrestHandlers(ABC):
             user = token.sub
             return 200 
 
+    @abstractmethod
+    def getUserFromApiKey(self, key):
+        return {"user": ""}
+
 
     def protect(self, require_auth, path, fn, data):
         user = None
@@ -47,7 +51,7 @@ class AnyrestHandlers(ABC):
         except:
             if "api-key" in request.headers:
                 key = request.headers["api-key"]
-                user = self.anyrest_get("api-keys/"+key, None)["user"]
+                user = self.getUserFromApiKey(key)["user"]
 
         if user is None:
             abort(401)

@@ -147,3 +147,9 @@ class AnyrestHandlersFirestore(AnyrestHandlers):
             for key in query:
                 key.reference.delete()
             return "200"
+
+    def getUserFromApiKey(self, key):
+        doc = self.db.collection("api-keys").document(key).get()
+        if doc.exists:
+            return {"user": doc.to_dict()["user"]}
+        abort(403)

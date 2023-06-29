@@ -58,24 +58,14 @@ if __name__ == "__main__":
     from flask import Flask
     from flask_cors import CORS
 
-    import os
-    os.environ['GRPC_DNS_RESOLVER'] = 'native'
-
     from pymongo import MongoClient
     from pymongo.server_api import ServerApi
-    uri = "mongodb+srv://hackline.1ofbp0v.mongodb.net/?authSource=%24external&authMechanism=MONGODB-X509&retryWrites=true&w=majority"
+    uri = ""
     client = MongoClient(uri,
                      tls=True,
                      tlsCertificateKeyFile='key.pem',
                      server_api=ServerApi('1'))
-
-
     db = client['test']
-    collection = db['intervals']
-    doc_count = collection.count_documents({})
-    print(doc_count)
-
-    db = None
     app = Flask(__name__)
 
     addAnyrestHandlersMongoDB(app, db)
