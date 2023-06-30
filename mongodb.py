@@ -3,8 +3,6 @@ from flask import abort, request
 import json
 from bson.objectid import ObjectId
 
-
-
 class AnyrestHandlersMongoDB(AnyrestHandlers):
     def __init__(self, db):
         self.db = db
@@ -50,7 +48,6 @@ class AnyrestHandlersMongoDB(AnyrestHandlers):
 
     def anyrest_get(self, path, nothing):
         path, col, id = self.decunstructPath(path)
-        print(path, col, id)
         col = self.db[col]
         if id == None:
             return list(map(self.resToDict, col.find({"anyrest_path": path})))
@@ -61,14 +58,19 @@ class AnyrestHandlersMongoDB(AnyrestHandlers):
             else:
                 return self.resToDict(res)
 
-    def anyrest_query(self, path, query):
+    def anyrest_query(self, path, a):
         path, col, id = self.decunstructPath(path)
         col = self.db[col]
         if id != None:
             abort(400)
-        return list(map(self.resToDict, col.find({
-            "$and": [{"anyrest_path": path}, query]
-         })))
+
+        res = col.find({ "$and": [{"anyrest_path": path}, a[0]]})
+        if len(a) > 1 and a[1] != None:
+            res = res.sort(*list(a[1].items())[0])
+        if len(a) > 2:
+            res = res.limit(a[2])
+
+        return list(map(self.resToDict, res))
 
     def anyrest_patch(self, path, data):
         path, col, id = self.decunstructPath(path)
