@@ -9,6 +9,19 @@ class Handlers:
         self.getApiKey = getApiKey
         self.deleteApiKey = deleteApiKey
 
+class TestingHandlers(Handlers):
+    def __init__(self, handlers, clear):
+        self.get = handlers.get
+        self.post = handlers.post
+        self.patch = handlers.patch
+        self.put = handlers.put
+        self.delete = handlers.delete
+        self.query = handlers.query
+        self.getApiKey = handlers.getApiKey
+        self.deleteApiKey = handlers.deleteApiKey
+        self.clear = clear
+
+
 def addAnyrestHandlers(app, db, authority, audience, lock):
     if authority is not None:
         from authlib.integrations.flask_oauth2 import ResourceProtector
@@ -57,7 +70,9 @@ def addAnyrestHandlersFireStore(app, db, authority=None, audience=None, lock=Fal
 def addAnyrestHandlersTesting(app, authority=None, audience=None, lock=False):
     from testing import AnyrestHandlersTesting
     db = AnyrestHandlersTesting()
-    return addAnyrestHandlers(app, db, authority, audience, lock)
+    ar = addAnyrestHandlers(app, db, authority, audience, lock)
+    ar = TestingHandlers(ar, db.clear)
+    return ar
 
 if __name__ == "__main__":
     from flask import Flask
