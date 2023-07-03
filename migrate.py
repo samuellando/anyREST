@@ -9,12 +9,11 @@ os.environ['GRPC_DNS_RESOLVER'] = 'native'
 firebase_app = firebase_admin.initialize_app(options={'projectId': 'timelogger-slando'})
 fb = firestore.client()
 
-uri = "mongodb+srv://hackline.1ofbp0v.mongodb.net/?authSource=%24external&authMechanism=MONGODB-X509&retryWrites=true&w=majority"
+uri = "mongodb+srv://{}:{}@hackline.1ofbp0v.mongodb.net/?retryWrites=true&w=majority".format(os.environ["MONGODB_USER"], os.environ["MONGODB_PASSWORD"])
 client = MongoClient(uri,
                      tls=True,
-                     tlsCertificateKeyFile='key.pem',
                      server_api=ServerApi('1'))
-mdb = client['test']
+mdb = client['production']
 
 def migrateAll(ref, path):
     for col in ref.collections(): 

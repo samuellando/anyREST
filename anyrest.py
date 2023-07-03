@@ -54,21 +54,18 @@ def addAnyrestHandlersFireStore(app, db, authority=None, audience=None, lock=Fal
     db = AnyrestHandlersFirestore(db)
     return addAnyrestHandlers(app, db, authority, audience, lock)
 
+def addAnyrestHandlersTesting(app, authority=None, audience=None, lock=False):
+    from testing import AnyrestHandlersTesting
+    db = AnyrestHandlersTesting()
+    return addAnyrestHandlers(app, db, authority, audience, lock)
+
 if __name__ == "__main__":
     from flask import Flask
     from flask_cors import CORS
 
-    from pymongo import MongoClient
-    from pymongo.server_api import ServerApi
-    uri = ""
-    client = MongoClient(uri,
-                     tls=True,
-                     tlsCertificateKeyFile='key.pem',
-                     server_api=ServerApi('1'))
-    db = client['test']
     app = Flask(__name__)
 
-    addAnyrestHandlersMongoDB(app, db)
+    addAnyrestHandlersTesting(app)
 
     CORS(app)
     app.run(host='127.0.0.1', port=8080, debug=True)
