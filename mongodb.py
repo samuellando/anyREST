@@ -39,6 +39,8 @@ class AnyrestHandlersMongoDB(AnyrestHandlers):
         path, col, id = self.decunstructPath(path)
         if data is None:
             data = json.loads(request.data)
+        else:
+            data = data.copy()
         if id != None:
             data["_id"] = id
         col = self.db[col]
@@ -78,6 +80,8 @@ class AnyrestHandlersMongoDB(AnyrestHandlers):
             abort(400)
         if data is None:
             data = json.loads(request.data)
+        else:
+            data = data.copy()
         col = self.db[col]
         res = col.update_one({"anyrest_path": path, "_id": self.toObjectId(id)}, {"$set": data})
         if res.matched_count == 0:
@@ -91,6 +95,8 @@ class AnyrestHandlersMongoDB(AnyrestHandlers):
             abort(400)
         if data is None:
             data = json.loads(request.data)
+        else:
+            data = data.copy()
         col = self.db[col]
         data["anyrest_path"] = path
         res = col.replace_one({"anyrest_path": path, "_id": self.toObjectId(id)}, data)
